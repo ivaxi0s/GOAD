@@ -73,6 +73,7 @@ class WideResNet(nn.Module):
         self.relu = nn.ReLU(inplace=True)
         self.fc = nn.Linear(nChannels[3], num_classes) # todo
         # self.fout = nn.Linear(ndf, num_classes)
+        self.global_pool = nn.AdaptiveAvgPool2d((1,1))
         self.nChannels = nChannels[3]
         # self.softmax = nn.Softmax()
 
@@ -94,6 +95,8 @@ class WideResNet(nn.Module):
 
         out = self.relu(self.bn1(out))
         out = F.avg_pool2d(out, 8)
+        # import pdb; pdb.set_trace()
+        out = self.global_pool(out)
         act = out.view(-1, self.nChannels)
         fs = self.fc(act)
         # out = F.log_softmax(out, dim=1)

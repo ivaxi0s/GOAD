@@ -50,8 +50,10 @@ if __name__ == '__main__':
     parser.add_argument('--class_ind', default=1, type=int)
     parser.add_argument('--dataset', default='cifar10', type=str)
     args = parser.parse_args()
-
-    for i in range(10):
+    rng = 10
+    if args.dataset == 'ddi':
+        rng = 2
+    for i in range(1):
         args.class_ind = i
         print("Dataset: CIFAR10")
         print("True Class:", args.class_ind)

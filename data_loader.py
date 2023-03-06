@@ -2,7 +2,37 @@ import scipy.io
 import numpy as np
 import pandas as pd
 import torchvision.datasets as dset
+import torchvision.transforms as transforms
+from PIL import Image
+from numpy import genfromtxt
+import torch
 import os
+
+class DDI(dset.VisionDataset):
+  def __init__(self, root, transform=None):
+    self.root = root
+    self.df = pd.read_csv(os.path.join(self.root,'ddi_metadata.csv'))
+    self.attr_df = pd.read_csv(os.path.join(self.root,'ddi_attributes.csv'))
+    self.attr_txt = genfromtxt(os.path.join(self.root, 'attributes.txt'))
+
+    self.transform = transform
+  def __len__(self):
+    return(len(self.attr_df))
+
+  def __getitem__(self, index):
+    # print(index)
+    curr_df = self.attr_df.iloc[index]
+    img_name = curr_df['ImageID']
+    is_malignant = int(self.df.loc[self.df['DDI_file'] == curr_df['ImageID']]['malignant'].item()) #y
+
+    X = Image.open(os.path.join(self.root, img_name))
+    y = torch.tensor(is_malignant)
+    a = torch.tensor(self.attr_txt[index])
+    if self.transform:
+      X = self.transform(X)
+      if X.shape[0] == 4:
+        X = X[:3,:,:]
+    return X,y
 
 class Data_Loader:
 
@@ -60,6 +90,8 @@ class Data_Loader:
             return self.Arrhythmia_train_valid_data()
         if dataset_name == 'ckdd':
             return self.contaminatedKDD99_train_valid_data(c_percent)
+        if dataset_name == 'ddi':
+            return self.load_data_DDI(true_label)
 
 
     def load_data_CIFAR10(self, true_label):
@@ -69,6 +101,7 @@ class Data_Loader:
 
         trainset = dset.CIFAR10(root, train=True, download=True)
         train_data = np.array(trainset.data)
+        
         train_labels = np.array(trainset.targets)
 
         testset = dset.CIFAR10(root, train=False, download=True)
@@ -80,7 +113,32 @@ class Data_Loader:
         x_test = self.norm(np.asarray(test_data, dtype='float32'))
         return x_train, x_test, test_labels
 
+    def get_data_targets(self, ds):
+        xs = []
+        ys = []
+        for i in range(len(ds)):
+            x, y = ds[i]
+            xs.append(torch.Tensor(x))
+            ys.append(y)
+        xs = torch.stack(xs)
 
+        return np.reshape(np.array(xs), (xs.shape[0], xs.shape[2], xs.shape[3], xs.shape[1])), np.array(ys)
+
+    def load_data_DDI(self, true_label):
+        transforms_train = transforms.Compose([transforms.Resize((124)), transforms.CenterCrop((124)), transforms.ToTensor()])
+        ds = DDI(root='/lustre04/scratch/ivsh/datasets/ddi', transform = transforms_train)
+        train_len = int(len(ds)*0.75)
+        test_len = len(ds) - train_len
+        trainset, testset = torch.utils.data.random_split(ds, [train_len,test_len], generator=torch.Generator().manual_seed(42))
+        # import pdb; pdb.set_trace()   
+        train_data, train_labels = self.get_data_targets(trainset)
+        test_data, test_labels = self.get_data_targets(testset)
+
+        train_data = train_data[np.where(train_labels == true_label)]
+        x_train = self.norm(np.asarray(train_data, dtype='float32'))
+        x_test = self.norm(np.asarray(test_data, dtype='float32'))
+        return x_train, x_test, test_labels    
+    
     def Thyroid_train_valid_data(self):
         data = scipy.io.loadmat("data/thyroid.mat")
         samples = data['X']  # 3772
