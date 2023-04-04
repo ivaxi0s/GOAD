@@ -53,7 +53,9 @@ if __name__ == '__main__':
     rng = 10
     if args.dataset == 'ddi':
         rng = 2
-    for i in range(1):
+    if args.dataset == 'birds':
+        rng = 200
+    for i in range(rng):
         args.class_ind = i
         print("Dataset: CIFAR10")
         print("True Class:", args.class_ind)

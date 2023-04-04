@@ -3,9 +3,10 @@ import numpy as np
 import pandas as pd
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
+from cub_loader import DatasetBirds
 from PIL import Image
 from numpy import genfromtxt
-import torch
+import torch, pdb
 import os
 
 class DDI(dset.VisionDataset):
@@ -92,6 +93,8 @@ class Data_Loader:
             return self.contaminatedKDD99_train_valid_data(c_percent)
         if dataset_name == 'ddi':
             return self.load_data_DDI(true_label)
+        if dataset_name == 'birds':
+            return self.load_data_CUB(true_label)
 
 
     def load_data_CIFAR10(self, true_label):
@@ -125,6 +128,7 @@ class Data_Loader:
         return np.reshape(np.array(xs), (xs.shape[0], xs.shape[2], xs.shape[3], xs.shape[1])), np.array(ys)
 
     def load_data_DDI(self, true_label):
+        pdb.set_trace()
         transforms_train = transforms.Compose([transforms.Resize((124)), transforms.CenterCrop((124)), transforms.ToTensor()])
         ds = DDI(root='/lustre04/scratch/ivsh/datasets/ddi', transform = transforms_train)
         train_len = int(len(ds)*0.75)
@@ -138,6 +142,22 @@ class Data_Loader:
         x_train = self.norm(np.asarray(train_data, dtype='float32'))
         x_test = self.norm(np.asarray(test_data, dtype='float32'))
         return x_train, x_test, test_labels    
+    
+    def load_data_CUB(self, true_label):
+        transforms_train = transforms.Compose([transforms.Resize((56)), transforms.CenterCrop((56)), transforms.ToTensor()])
+        ds = DatasetBirds("/lustre04/scratch/ivsh/datasets/CUB/CUB_200_2011", transform=transforms_train, train=True)
+
+        train_len = int(len(ds)*0.75)
+        test_len = len(ds) - train_len
+        trainset, testset = torch.utils.data.random_split(ds, [train_len,test_len], generator=torch.Generator().manual_seed(42))
+        # import pdb; pdb.set_trace()   
+        train_data, train_labels = self.get_data_targets(trainset)
+        test_data, test_labels = self.get_data_targets(testset)
+
+        train_data = train_data[np.where(train_labels == true_label)]
+        x_train = self.norm(np.asarray(train_data, dtype='float32'))
+        x_test = self.norm(np.asarray(test_data, dtype='float32'))
+        return x_train, x_test, test_labels
     
     def Thyroid_train_valid_data(self):
         data = scipy.io.loadmat("data/thyroid.mat")
