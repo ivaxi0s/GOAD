@@ -81,6 +81,8 @@ class Data_Loader:
     def get_dataset(self, dataset_name, c_percent=None, true_label=1):
         if dataset_name == 'cifar10':
             return self.load_data_CIFAR10(true_label)
+        if dataset_name == 'mnist':
+            return self.load_data_MNIST(true_label)
         if dataset_name == 'kdd':
             return self.KDD99_train_valid_data()
         if dataset_name == 'kddrev':
@@ -115,7 +117,36 @@ class Data_Loader:
         x_train = self.norm(np.asarray(train_data, dtype='float32'))
         x_test = self.norm(np.asarray(test_data, dtype='float32'))
         return x_train, x_test, test_labels
+    
+    def load_data_MNIST(self, true_label):
+        root = './data'
+        if not os.path.exists(root):
+            os.mkdir(root)
+        transforms_train = transforms.Compose([transforms.Resize((32,32)), transforms.Grayscale(3),])
+        trainset = dset.MNIST(root, train=True, download=True, transform = transforms_train)
+        # train_data = np.array(trainset.data)
+        xs = []
+        for i in range(len(trainset)):
+            x,y = trainset[i]
+            xs.append(x)
+        train_data = torch.stack(xs, dim=0)
+        train_labels = np.array(trainset.targets)
 
+        testset = dset.MNIST(root, train=False, download=True, transform = transforms_train)
+        xs = []
+        for i in range(len(testset)):
+            x,y = testset[i]
+            xs.append(x)
+        test_data = torch.stack(xs, dim=0)
+        test_labels = np.array(testset.targets)
+        pdb.set_trace()
+
+        
+        train_data = train_data[np.where(train_labels == true_label)]
+        x_train = self.norm(np.asarray(train_data, dtype='float32'))
+        x_test = self.norm(np.asarray(test_data, dtype='float32'))
+        return x_train, x_test, test_labels
+    
     def get_data_targets(self, ds):
         xs = []
         ys = []
