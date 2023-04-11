@@ -116,30 +116,22 @@ class Data_Loader:
         train_data = train_data[np.where(train_labels == true_label)]
         x_train = self.norm(np.asarray(train_data, dtype='float32'))
         x_test = self.norm(np.asarray(test_data, dtype='float32'))
+        pdb.set_trace()
         return x_train, x_test, test_labels
     
     def load_data_MNIST(self, true_label):
         root = './data'
         if not os.path.exists(root):
             os.mkdir(root)
-        transforms_train = transforms.Compose([transforms.Resize((32,32)), transforms.Grayscale(3),])
+        transforms_train = transforms.Compose([transforms.Resize((32,32)), transforms.Grayscale(3),transforms.ToTensor(),])
         trainset = dset.MNIST(root, train=True, download=True, transform = transforms_train)
-        # train_data = np.array(trainset.data)
-        xs = []
-        for i in range(len(trainset)):
-            x,y = trainset[i]
-            xs.append(x)
-        train_data = torch.stack(xs, dim=0)
-        train_labels = np.array(trainset.targets)
+        train_data, train_labels = self.get_data_targets(trainset)
+        train_data = self.convert_numpy_PIL_ds(train_data, train_labels)
+        
 
         testset = dset.MNIST(root, train=False, download=True, transform = transforms_train)
-        xs = []
-        for i in range(len(testset)):
-            x,y = testset[i]
-            xs.append(x)
-        test_data = torch.stack(xs, dim=0)
-        test_labels = np.array(testset.targets)
-        pdb.set_trace()
+        test_data, test_labels = self.get_data_targets(testset)
+        test_data = self.convert_numpy_PIL_ds(test_data, test_labels)
 
         
         train_data = train_data[np.where(train_labels == true_label)]
@@ -157,6 +149,20 @@ class Data_Loader:
         xs = torch.stack(xs)
 
         return np.reshape(np.array(xs), (xs.shape[0], xs.shape[2], xs.shape[3], xs.shape[1])), np.array(ys)
+    
+    def convert_numpy_PIL_ds(self, data, labels):
+        data = torch.Tensor(data)
+        labels = torch.Tensor(labels)
+        tr = transforms.Compose([transforms.ToPILImage()])
+        xs = []
+        for i in range(len(data)):
+            x = tr(torch.permute(data[i], (2,0,1)))
+            xs.append(x)
+        data_x = np.stack((xs),0)
+        return data_x
+        
+
+
 
     def load_data_DDI(self, true_label):
         pdb.set_trace()
@@ -175,15 +181,18 @@ class Data_Loader:
         return x_train, x_test, test_labels    
     
     def load_data_CUB(self, true_label):
-        transforms_train = transforms.Compose([transforms.Resize((56)), transforms.CenterCrop((56)), transforms.ToTensor()])
+        transforms_train = transforms.Compose([transforms.Resize((32)), transforms.CenterCrop((32)), transforms.ToTensor()])
         ds = DatasetBirds("/lustre04/scratch/ivsh/datasets/CUB/CUB_200_2011", transform=transforms_train, train=True)
 
         train_len = int(len(ds)*0.75)
         test_len = len(ds) - train_len
         trainset, testset = torch.utils.data.random_split(ds, [train_len,test_len], generator=torch.Generator().manual_seed(42))
-        # import pdb; pdb.set_trace()   
         train_data, train_labels = self.get_data_targets(trainset)
+        train_data = self.convert_numpy_PIL_ds(train_data, train_labels)
+
         test_data, test_labels = self.get_data_targets(testset)
+        test_data = self.convert_numpy_PIL_ds(test_data, test_labels)
+
 
         train_data = train_data[np.where(train_labels == true_label)]
         x_train = self.norm(np.asarray(train_data, dtype='float32'))
